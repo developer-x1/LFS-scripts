@@ -223,3 +223,257 @@ grep 'SEARCH.*/usr/lib' dummy.log |sed 's|; |\n|g'
 grep "/lib.*/libc.so.6 " dummy.log
 grep found dummy.log
 rm -v dummy.c a.out dummy.log
+
+# Zlib
+cd $LFS/sources -v
+unpack zlib-1.2.11.tar.xz 
+cd zlib-1.2.11/
+./configure --prefix=/usr
+make
+make install
+mv -v /usr/lib/libz.so.* /lib
+ln -sfv ../../lib/$(readlink /usr/lib/libz.so) /usr/lib/libz.so
+
+# Bzip2
+cd $LFS/sources -v
+cd bzip2-1.0.8/
+patch -Np1 -i ../bzip2-1.0.8-install_docs-1.patch
+sed -i 's@\(ln -s -f \)$(PREFIX)/bin/@\1@' Makefile
+sed -i "s@(PREFIX)/man@(PREFIX)/share/man@g" Makefile
+make -f Makefile-libbz2_so
+make clean
+make
+make PREFIX=/usr install
+cp -v bzip2-shared /bin/bzip2
+cp -av libbz2.so* /lib
+ln -sv ../../lib/libbz2.so.1.0 /usr/lib/libbz2.so
+rm -v /usr/bin/{bunzip2,bzcat,bzip2}
+ln -sv bzip2 /bin/bunzip2
+ln -sv bzip2 /bin/bzcat
+
+# Xz
+cd $LFS/sources -v
+cd xz-5.2.4/
+./configure --prefix=/usr    \
+            --disable-static \
+            --docdir=/usr/share/doc/xz-5.2.4
+make
+make install
+mv -v   /usr/bin/{lzma,unlzma,lzcat,xz,unxz,xzcat} /bin
+mv -v /usr/lib/liblzma.so.* /lib
+ln -svf ../../lib/$(readlink /usr/lib/liblzma.so) /usr/lib/liblzma.so
+
+# File
+cd $LFS/sources -v
+cd file-5.38/
+./configure --prefix=/usr
+make
+make install
+
+# Readline
+cd $LFS/sources -v
+unpack readline-8.0.tar.gz 
+cd readline-8.0/
+sed -i '/MV.*old/d' Makefile.in
+sed -i '/{OLDSUFF}/c:' support/shlib-install
+./configure --prefix=/usr    \
+            --disable-static \
+            --docdir=/usr/share/doc/readline-8.0
+make SHLIB_LIBS="-L/tools/lib -lncursesw"
+make SHLIB_LIBS="-L/tools/lib -lncursesw" install
+mv -v /usr/lib/lib{readline,history}.so.* /lib
+chmod -v u+w /lib/lib{readline,history}.so.*
+ln -sfv ../../lib/$(readlink /usr/lib/libreadline.so) /usr/lib/libreadline.so
+ln -sfv ../../lib/$(readlink /usr/lib/libhistory.so ) /usr/lib/libhistory.so
+install -v -m644 doc/*.{ps,pdf,html,dvi} /usr/share/doc/readline-8.0
+
+# M4
+cd $LFS/sources -v
+cd m4-1.4.18/
+sed -i 's/IO_ftrylockfile/IO_EOF_SEEN/' lib/*.c
+echo "#define _IO_IN_BACKUP 0x100" >> lib/stdio-impl.h
+./configure --prefix=/usr
+make
+make install
+
+# Bc
+cd $LFS/sources -v
+unpack bc-2.5.3.tar.gz 
+cd bc-2.5.3/
+PREFIX=/usr CC=gcc CFLAGS="-std=c99" ./configure.sh -G -O3
+make
+make install
+
+# Binutils
+cd $LFS/sources -v
+cd binutils-2.34/
+expect -c "spawn ls"
+sed -i '/@\tincremental_copy/d' gold/testsuite/Makefile.in
+mkdir -v build3
+cd       build3
+../configure --prefix=/usr       \
+             --enable-gold       \
+             --enable-ld=default \
+             --enable-plugins    \
+             --enable-shared     \
+             --disable-werror    \
+             --enable-64-bit-bfd \
+             --with-system-zlib
+make tooldir=/usr
+make -k check
+make tooldir=/usr install
+
+# GMP
+cd $LFS/sources -v
+unpack gmp-6.2.0.tar.xz 
+cd gmp-6.2.0/
+cp -v configfsf.guess config.guess
+cp -v configfsf.sub   config.sub
+./configure --prefix=/usr    \
+            --enable-cxx     \
+            --disable-static \
+            --docdir=/usr/share/doc/gmp-6.2.0
+make
+make html
+make check 2>&1 | tee gmp-check-log
+awk '/# PASS:/{total+=$3} ; END{print total}' gmp-check-log
+make install
+make install-html
+
+# Mpfr
+cd $LFS/sources -v
+unpack mpfr-4.0.2.tar.xz 
+cd mpfr-4.0.2/
+./configure --prefix=/usr        \
+            --disable-static     \
+            --enable-thread-safe \
+            --docdir=/usr/share/doc/mpfr-4.0.2
+make
+make html
+make check
+make install
+make install-html
+
+# Mpc
+cd $LFS/sources -v
+unpack mpc-1.1.0.tar.gz 
+cd mpc-1.1.0/
+./configure --prefix=/usr    \
+            --disable-static \
+            --docdir=/usr/share/doc/mpc-1.1.0
+make
+make html
+make install
+make install-html
+
+# Attr
+cd $LFS/sources -v
+unpack attr-2.4.48.tar.gz 
+cd attr-2.4.48/
+./configure --prefix=/usr     \
+            --disable-static  \
+            --sysconfdir=/etc \
+            --docdir=/usr/share/doc/attr-2.4.48
+make
+make install
+mv -v /usr/lib/libattr.so.* /lib
+ln -sfv ../../lib/$(readlink /usr/lib/libattr.so) /usr/lib/libattr.so
+
+# Acl
+cd $LFS/sources -v
+unpack acl-2.2.53.tar.gz 
+cd acl-2.2.53/
+./configure --prefix=/usr         \
+            --disable-static      \
+            --libexecdir=/usr/lib \
+            --docdir=/usr/share/doc/acl-2.2.53
+make
+make install
+mv -v /usr/lib/libacl.so.* /lib
+ln -sfv ../../lib/$(readlink /usr/lib/libacl.so) /usr/lib/libacl.so
+
+# Cracklib
+cd $LFS/sources -v
+unpack cracklib-2.9.7.tar.bz2 
+cd cracklib-2.9.7/
+sed -i '/skipping/d' util/packer.c &&
+
+./configure --prefix=/usr    \
+            --disable-static \
+            --with-default-dict=/lib/cracklib/pw_dict &&
+make
+
+
+# Shadow
+cd $LFS/sources -v
+unpack shadow-4.8.1.tar.xz 
+cd shadow-4.8.1/
+sed -i 's/groups$(EXEEXT) //' src/Makefile.in
+find man -name Makefile.in -exec sed -i 's/groups\.1 / /'   {} \;
+find man -name Makefile.in -exec sed -i 's/getspnam\.3 / /' {} \;
+find man -name Makefile.in -exec sed -i 's/passwd\.5 / /'   {} \;
+sed -i -e 's@#ENCRYPT_METHOD DES@ENCRYPT_METHOD SHA512@' \
+       -e 's@/var/spool/mail@/var/mail@' etc/login.defs
+sed -i 's/1000/999/' etc/useradd
+./configure --sysconfdir=/etc --with-group-name-max-length=32
+make
+make install
+pwconv
+grpconv
+sed -i 's/yes/no/' /etc/default/useradd
+passwd root
+
+# GCC
+cd $LFS/sources -v
+cd gcc-9.2.0/
+case $(uname -m) in
+  x86_64)
+    sed -e '/m64=/s/lib64/lib/' \
+        -i.orig gcc/config/i386/t-linux64
+  ;;
+esac
+sed -e '1161 s|^|//|' \
+    -i libsanitizer/sanitizer_common/sanitizer_platform_limits_posix.cc
+mkdir -v build3
+cd       build3 
+SED=sed                               \
+../configure --prefix=/usr            \
+             --enable-languages=c,c++ \
+             --disable-multilib       \
+             --disable-bootstrap      \
+             --with-system-zlib
+make
+ulimit -s 32768
+chown -Rv nobody . 
+su nobody -s /bin/bash -c "PATH=$PATH make -k check"
+../contrib/test_summary
+make install
+rm -rf /usr/lib/gcc/$(gcc -dumpmachine)/9.2.0/include-fixed/bits/
+chown -v -R root:root \
+    /usr/lib/gcc/*linux-gnu/9.2.0/include{,-fixed}
+ln -sv ../usr/bin/cpp /lib
+ln -sv gcc /usr/bin/cc
+install -v -dm755 /usr/lib/bfd-plugins
+ln -sfv ../../libexec/gcc/$(gcc -dumpmachine)/9.2.0/liblto_plugin.so \
+        /usr/lib/bfd-plugins/
+echo 'int main(){}' > dummy.c
+cc dummy.c -v -Wl,--verbose &> dummy.log
+readelf -l a.out | grep ': /lib'
+grep -o '/usr/lib.*/crt[1in].*succeeded' dummy.log
+grep -B4 '^ /usr/include' dummy.log
+grep 'SEARCH.*/usr/lib' dummy.log |sed 's|; |\n|g'
+grep "/lib.*/libc.so.6 " dummy.log
+grep found dummy.log
+rm -v dummy.c a.out dummy.log
+mkdir -pv /usr/share/gdb/auto-load/usr/lib
+mv -v /usr/lib/*gdb.py /usr/share/gdb/auto-load/usr/lib
+
+# Pkg-config
+cd $LFS/sources -v
+unpack pkg-config-0.29.2.tar.gz 
+cd pkg-config-0.29.2/
+./configure --prefix=/usr              \
+            --with-internal-glib       \
+            --disable-host-tool        \
+            --docdir=/usr/share/doc/pkg-config-0.29.2
+make install
