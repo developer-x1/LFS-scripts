@@ -1,0 +1,10 @@
+grep '^Download:' deps > deps2
+sed 's/Download: */ /' deps2 > deps
+
+cd $LFS/sources -v
+unpack 
+cd 
+./configure --prefix=/tools 
+make
+make install
+
