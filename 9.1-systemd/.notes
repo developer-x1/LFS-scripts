@@ -8,3 +8,7 @@ cd
 make
 make install
 
+[fuad@localhost LFS-scripts]$ pressanykey(){ read -n1 -p "${txtpressanykey}"; }
+[fuad@localhost LFS-scripts]$ txtpressanykey="Press any key to continue."
+start_time=`date +%s`
+sleep 5 && echo $(expr `date +%s` - $start_time) 

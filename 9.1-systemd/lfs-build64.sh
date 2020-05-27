@@ -477,3 +477,163 @@ cd pkg-config-0.29.2/
             --disable-host-tool        \
             --docdir=/usr/share/doc/pkg-config-0.29.2
 make install
+
+# Ncurses
+cd $LFS/sources -v 
+cd ncurses-6.2/
+sed -i '/LIBTOOL_INSTALL/d' c++/Makefile.in
+./configure --prefix=/usr           \
+            --mandir=/usr/share/man \
+            --with-shared           \
+            --without-debug         \
+            --without-normal        \
+            --enable-pc-files       \
+            --enable-widec
+make
+make install
+mv -v /usr/lib/libncursesw.so.6* /lib
+ln -sfv ../../lib/$(readlink /usr/lib/libncursesw.so) /usr/lib/libncursesw.so
+for lib in ncurses form panel menu ; do
+    rm -vf                    /usr/lib/lib${lib}.so
+    echo "INPUT(-l${lib}w)" > /usr/lib/lib${lib}.so
+    ln -sfv ${lib}w.pc        /usr/lib/pkgconfig/${lib}.pc
+done
+rm -vf                     /usr/lib/libcursesw.so
+echo "INPUT(-lncursesw)" > /usr/lib/libcursesw.so
+ln -sfv libncurses.so      /usr/lib/libcurses.so
+mkdir -v       /usr/share/doc/ncurses-6.2
+cp -v -R doc/* /usr/share/doc/ncurses-6.2
+
+# Libcap
+cd $LFS/sources -v 
+unpack libcap-2.31.tar.xz 
+cd libcap-2.31/
+sed -i '/install.*STA...LIBNAME/d' libcap/Makefile
+make lib=lib
+make lib=lib install
+chmod -v 755 /lib/libcap.so.2.31
+
+# Sed
+cd $LFS/sources -v 
+cd sed-4.8/
+sed -i 's/usr/tools/'                 build-aux/help2man
+sed -i 's/testsuite.panic-tests.sh//' Makefile.in
+./configure --prefix=/usr --bindir=/bin
+make
+make html
+make install
+install -d -m755           /usr/share/doc/sed-4.8
+install -m644 doc/sed.html /usr/share/doc/sed-4.8
+
+# Psmisc
+cd $LFS/sources -v 
+unpack psmisc-23.2.tar.xz 
+cd psmisc-23.2/
+./configure --prefix=/usr
+make 
+make install
+mv -v /usr/bin/fuser   /bin
+mv -v /usr/bin/killall /bin
+
+# Iana-etc
+cd $LFS/sources -v 
+unpack iana-etc-2.30.tar.bz2 
+cd iana-etc-2.30/
+make 
+make install
+
+# Bison
+cd $LFS/sources -v 
+cd bison-3.5.2/
+./configure --prefix=/usr --docdir=/usr/share/doc/bison-3.5.2
+make
+make install
+
+# Flex
+cd $LFS/sources -v 
+unpack flex-2.6.4.tar.gz 
+cd flex-2.6.4/
+sed -i "/math.h/a #include <malloc.h>" src/flexdef.h
+HELP2MAN=/tools/bin/true \
+./configure --prefix=/usr --docdir=/usr/share/doc/flex-2.6.4
+make
+make install
+ln -sv flex /usr/bin/lex
+
+# Grep
+cd $LFS/sources -v 
+cd grep-3.4/
+./configure --prefix=/usr --bindir=/bin
+make
+make install
+
+# Bash
+cd $LFS/sources -v 
+cd bash-5.0/
+patch -Np1 -i ../bash-5.0-upstream_fixes-1.patch
+./configure --prefix=/usr                    \
+            --docdir=/usr/share/doc/bash-5.0 \
+            --without-bash-malloc            \
+            --with-installed-readline
+make
+chown -Rv nobody .
+su nobody -s /bin/bash -c "PATH=$PATH HOME=/home make tests"
+make install
+mv -vf /usr/bin/bash /bin
+exec /bin/bash --login +h
+
+# Libtool
+cd $LFS/sources -v 
+unpack libtool-2.4.6.tar.xz 
+cd libtool-2.4.6/
+./configure --prefix=/usr
+make
+make install
+
+# GDBM
+cd $LFS/sources -v
+unpack gdbm-1.18.1.tar.gz 
+cd gdbm-1.18.1/
+./configure --prefix=/usr    \
+            --disable-static \
+            --enable-libgdbm-compat
+make
+make install
+
+# Gperf
+cd $LFS/sources -v
+unpack gperf-3.1.tar.gz 
+cd gperf-3.1/
+./configure --prefix=/usr --docdir=/usr/share/doc/gperf-3.1
+make
+make install
+
+# Expat
+cd $LFS/sources -v
+unpack expat-2.2.9.tar.xz 
+cd expat-2.2.9/
+sed -i 's|usr/bin/env |bin/|' run.sh.in
+./configure --prefix=/usr    \
+            --disable-static \
+            --docdir=/usr/share/doc/expat-2.2.9
+make
+make install
+install -v -m644 doc/*.{html,png,css} /usr/share/doc/expat-2.2.9
+
+# Inetutils
+cd $LFS/sources -v
+unpack inetutils-1.9.4.tar.xz 
+cd inetutils-1.9.4/
+./configure --prefix=/usr        \
+            --localstatedir=/var \
+            --disable-logger     \
+            --disable-whois      \
+            --disable-rcp        \
+            --disable-rexec      \
+            --disable-rlogin     \
+            --disable-rsh        \
+            --disable-servers
+make
+make install
+mv -v /usr/bin/{hostname,ping,ping6,traceroute} /bin
+mv -v /usr/bin/ifconfig /sbin
