@@ -637,3 +637,236 @@ make
 make install
 mv -v /usr/bin/{hostname,ping,ping6,traceroute} /bin
 mv -v /usr/bin/ifconfig /sbin
+
+# Perl
+cd $LFS/sources -v
+cd perl-5.30.1/
+echo "127.0.0.1 localhost $(hostname)" > /etc/hosts
+export BUILD_ZLIB=False
+export BUILD_BZIP2=0
+sh Configure -des -Dprefix=/usr                 \
+                  -Dvendorprefix=/usr           \
+                  -Dman1dir=/usr/share/man/man1 \
+                  -Dman3dir=/usr/share/man/man3 \
+                  -Dpager="/usr/bin/less -isR"  \
+                  -Duseshrplib                  \
+                  -Dusethreads
+make
+make install
+make install
+unset BUILD_ZLIB BUILD_BZIP2
+
+# XML Parser
+cd $LFS/sources -v
+unpack XML-Parser-2.46.tar.gz 
+cd XML-Parser-2.46/
+perl Makefile.PL
+make
+make install
+
+# Intltool
+cd $LFS/sources -v
+unpack intltool-0.51.0.tar.gz 
+cd intltool-0.51.0/
+sed -i 's:\\\${:\\\$\\{:' intltool-update.in
+./configure --prefix=/usr
+make
+make install
+install -v -Dm644 doc/I18N-HOWTO /usr/share/doc/intltool-0.51.0/I18N-HOWTO
+
+# Autoconf 
+cd $LFS/sources -v
+unpack autoconf-2.69.tar.xz 
+cd autoconf-2.69/
+sed '361 s/{/\\{/' -i bin/autoscan.in
+./configure --prefix=/usr
+make
+make install
+
+# Automake
+cd $LFS/sources -v
+unpack automake-1.16.1.tar.xz 
+cd automake-1.16.1/
+./configure --prefix=/usr --docdir=/usr/share/doc/automake-1.16.1
+make
+make install
+
+# Kmod
+cd $LFS/sources -v
+unpack kmod-26.tar.xz 
+cd kmod-26/
+./configure --prefix=/usr          \
+            --bindir=/bin          \
+            --sysconfdir=/etc      \
+            --with-rootlibdir=/lib \
+            --with-xz              \
+            --with-zlib
+make 
+make install
+
+for target in depmod insmod lsmod modinfo modprobe rmmod; do
+  ln -sfv ../bin/kmod /sbin/$target
+done
+
+ln -sfv kmod /bin/lsmod
+
+# Gettext
+cd $LFS/sources -v
+cd gettext-0.20.1/
+./configure --prefix=/usr    \
+            --disable-static \
+            --docdir=/usr/share/doc/gettext-0.20.1
+make
+make install
+chmod -v 0755 /usr/lib/preloadable_libintl.so
+
+# Libelf
+cd $LFS/sources -v
+unpack elfutils-0.178.tar.bz2 
+cd elfutils-0.178/
+make
+make -C libelf install
+install -vm644 config/libelf.pc /usr/lib/pkgconfig
+rm /usr/lib/libelf.a
+
+# Libffi
+cd $LFS/sources -v
+unpack libffi-3.3.tar.gz 
+cd libffi-3.3/
+./configure --prefix=/usr --disable-static --with-gcc-arch=native
+make
+make install
+
+# OpenSSL
+cd $LFS/sources -v
+unpack openssl-1.1.1d.tar.gz 
+cd openssl-1.1.1d/
+./config --prefix=/usr         \
+         --openssldir=/etc/ssl \
+         --libdir=lib          \
+         shared                \
+         zlib-dynamic
+make
+sed -i '/INSTALL_LIBS/s/libcrypto.a libssl.a//' Makefile
+make MANSUFFIX=ssl install
+mv -v /usr/share/doc/openssl /usr/share/doc/openssl-1.1.1d
+cp -vfr doc/* /usr/share/doc/openssl-1.1.1d
+
+# Python 
+cd $LFS/sources -v
+cd Python-3.8.1/
+./configure --prefix=/usr       \
+            --enable-shared     \
+            --with-system-expat \
+            --with-system-ffi   \
+            --with-ensurepip=yes
+make
+make install
+chmod -v 755 /usr/lib/libpython3.8.so
+chmod -v 755 /usr/lib/libpython3.so
+ln -sfv pip3.8 /usr/bin/pip3
+install -v -dm755 /usr/share/doc/python-3.8.1/html 
+tar --strip-components=1  \
+    --no-same-owner       \
+    --no-same-permissions \
+    -C /usr/share/doc/python-3.8.1/html \
+    -xvf ../python-3.8.1-docs-html.tar.bz2
+
+
+# Ninja
+cd $LFS/sources -v
+unpack ninja-1.10.0.tar.gz 
+cd ninja-1.10.0/
+export NINJAJOBS=4
+sed -i '/int Guess/a \
+  int   j = 0;\
+  char* jobs = getenv( "NINJAJOBS" );\
+  if ( jobs != NULL ) j = atoi( jobs );\
+  if ( j > 0 ) return j;\
+' src/ninja.cc
+python3 configure.py --bootstrap
+install -vm755 ninja /usr/bin/
+install -vDm644 misc/bash-completion /usr/share/bash-completion/completions/ninja
+install -vDm644 misc/zsh-completion  /usr/share/zsh/site-functions/_ninja
+
+# Meson
+cd $LFS/sources -v
+unpack meson-0.53.1.tar.gz 
+cd meson-0.53.1/
+python3 setup.py build
+python3 setup.py install --root=dest
+cp -rv dest/* /
+
+# Coreutils
+cd $LFS/sources -v
+cd coreutils-8.31/
+patch -Np1 -i ../coreutils-8.31-i18n-1.patch
+sed -i '/test.lock/s/^/#/' gnulib-tests/gnulib.mk
+autoreconf -fiv
+FORCE_UNSAFE_CONFIGURE=1 ./configure \
+            --prefix=/usr            \
+            --enable-no-install-program=kill,uptime
+make
+make install
+mv -v /usr/bin/{cat,chgrp,chmod,chown,cp,date,dd,df,echo} /bin
+mv -v /usr/bin/{false,ln,ls,mkdir,mknod,mv,pwd,rm} /bin
+mv -v /usr/bin/{rmdir,stty,sync,true,uname} /bin
+mv -v /usr/bin/chroot /usr/sbin
+mv -v /usr/share/man/man1/chroot.1 /usr/share/man/man8/chroot.8
+sed -i s/\"1\"/\"8\"/1 /usr/share/man/man8/chroot.8
+mv -v /usr/bin/{head,nice,sleep,touch} /bin
+
+# Check
+cd $LFS/sources -v
+unpack check-0.14.0.tar.gz 
+cd check-0.14.0/
+./configure --prefix=/usr
+make docdir=/usr/share/doc/check-0.14.0 install &&
+sed -i '1 s/tools/usr/' /usr/bin/checkmk
+
+# Diffutils
+cd $LFS/sources -v
+cd diffutils-3.7/
+./configure --prefix=/usr
+make
+make install 
+
+# Gawk
+cd $LFS/sources -v
+cd gawk-5.0.1/
+sed -i 's/extras//' Makefile.in
+./configure --prefix=/usr
+make
+make install
+mkdir -v /usr/share/doc/gawk-5.0.1
+cp    -v doc/{awkforai.txt,*.{eps,pdf,jpg}} /usr/share/doc/gawk-5.0.1
+
+# Findutils 
+cd $LFS/sources -v
+cd findutils-4.7.0/
+./configure --prefix=/usr --localstatedir=/var/lib/locate
+make
+make install
+mv -v /usr/bin/find /bin
+sed -i 's|find:=${BINDIR}|find:=/bin|' /usr/bin/updatedb
+
+# Groff
+cd $LFS/sources -v
+unpack groff-1.22.4.tar.gz 
+cd groff-1.22.4/
+PAGE=letter ./configure --prefix=/usr
+make -j1
+make install
+
+# Grub
+cd $LFS/sources -v
+unpack grub-2.04.tar.xz 
+cd grub-2.04/
+./configure --prefix=/usr          \
+            --sbindir=/sbin        \
+            --sysconfdir=/etc      \
+            --disable-efiemu       \
+            --disable-werror
+make
+make install
+mv -v /etc/bash_completion.d/grub /usr/share/bash-completion/completions
