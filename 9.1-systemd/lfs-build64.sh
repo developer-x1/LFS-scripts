@@ -870,3 +870,295 @@ cd grub-2.04/
 make
 make install
 mv -v /etc/bash_completion.d/grub /usr/share/bash-completion/completions
+
+# Less
+cd $LFS/sources -v
+unpack less-551.tar.gz 
+cd less-551/
+./configure --prefix=/usr --sysconfdir=/etc
+make
+make install
+
+# Gzip
+cd $LFS/sources -v
+cd grep-3.4/
+./configure --prefix=/usr
+make
+make install
+mv -v /usr/bin/gzip /bin
+
+# Zstd
+cd $LFS/sources -v
+unpack zstd-1.4.4.tar.gz 
+cd zstd-1.4.4/
+make
+make prefix=/usr install
+rm -v /usr/lib/libzstd.a
+mv -v /usr/lib/libzstd.so.* /lib
+ln -sfv ../../lib/$(readlink /usr/lib/libzstd.so) /usr/lib/libzstd.so
+
+# Iproute2
+cd $LFS/sources -v
+unpack iproute2-5.5.0.tar.xz 
+cd iproute2-5.5.0/
+sed -i /ARPD/d Makefile
+rm -fv man/man8/arpd.8
+sed -i 's/.m_ipt.o//' tc/Makefile
+make
+make DOCDIR=/usr/share/doc/iproute2-5.5.0 install
+
+# Kbd
+cd $LFS/sources -v
+unpack kbd-2.2.0.tar.xz 
+cd kbd-2.2.0/
+patch -Np1 -i ../kbd-2.2.0-backspace-1.patch
+sed -i 's/\(RESIZECONS_PROGS=\)yes/\1no/g' configure
+sed -i 's/resizecons.8 //' docs/man/man8/Makefile.in
+PKG_CONFIG_PATH=/tools/lib/pkgconfig ./configure --prefix=/usr --disable-vlock
+make
+make install
+mkdir -v       /usr/share/doc/kbd-2.2.0
+cp -R -v docs/doc/* /usr/share/doc/kbd-2.2.0
+
+# Libpipeline
+cd $LFS/sources -v
+unpack libpipeline-1.5.2.tar.gz 
+cd libpipeline-1.5.2/
+./configure --prefix=/usr 
+make 
+make install
+
+# Make
+cd $LFS/sources -v
+cd make-4.3/
+./configure --prefix=/usr
+make
+make install
+
+# Patch
+cd $LFS/sources -v
+cd patch-2.7.6/
+./configure --prefix=/usr
+make
+make install
+
+# Man DB
+cd $LFS/sources -v
+unpack man-db-2.9.0.tar.xz 
+cd man-db-2.9.0/
+sed -i '/find/s@/usr@@' init/systemd/man-db.service.in
+./configure --prefix=/usr                        \
+            --docdir=/usr/share/doc/man-db-2.9.0 \
+            --sysconfdir=/etc                    \
+            --disable-setuid                     \
+            --enable-cache-owner=bin             \
+            --with-browser=/usr/bin/lynx         \
+            --with-vgrind=/usr/bin/vgrind        \
+            --with-grap=/usr/bin/grap
+make
+make install
+
+# Tar
+cd $LFS/sources -v
+FORCE_UNSAFE_CONFIGURE=1  \
+./configure --prefix=/usr \
+            --bindir=/bin
+make
+make install
+make -C doc install-html docdir=/usr/share/doc/tar-1.32
+
+# Texinfo
+cd $LFS/sources -v
+cd texinfo-6.7/
+./configure --prefix=/usr --disable-static
+make
+make install
+make TEXMF=/usr/share/texmf install-tex
+pushd /usr/share/info
+rm -v dir
+for f in *
+  do install-info $f dir 2>/dev/null
+done
+popd
+
+# Vim
+cd $LFS/sources -v
+unpack vim-8.2.0190.tar.gz 
+cd vim-8.2.0190/
+echo '#define SYS_VIMRC_FILE "/etc/vimrc"' >> src/feature.h
+./configure --prefix=/usr
+make
+make install
+ln -sv vim /usr/bin/vi
+for L in  /usr/share/man/{,*/}man1/vim.1; do
+    ln -sv vim.1 $(dirname $L)/vi.1
+done
+ln -sv ../vim/vim82/doc /usr/share/doc/vim-8.2.0190
+cat > /etc/vimrc << "EOF"
+" Begin /etc/vimrc
+
+" Ensure defaults are set before customizing settings, not after
+source $VIMRUNTIME/defaults.vim
+let skip_defaults_vim=1 
+
+set nocompatible
+set backspace=2
+set mouse=
+syntax on
+if (&term == "xterm") || (&term == "putty")
+  set background=dark
+endif
+
+" End /etc/vimrc
+EOF
+
+# Systemd
+cd $LFS/sources -v
+unpack systemd-244.tar.gz 
+cd systemd-244/
+ln -sf /tools/bin/true /usr/bin/xsltproc
+for file in /tools/lib/lib{blkid,mount,uuid}.so*; do
+    ln -sf $file /usr/lib/
+done
+tar -xf ../systemd-man-pages-244.tar.xz
+sed '177,$ d' -i src/resolve/meson.build
+sed -i 's/GROUP="render", //' rules.d/50-udev-default.rules.in
+mkdir -p build
+cd       build
+PKG_CONFIG_PATH="/usr/lib/pkgconfig:/tools/lib/pkgconfig" \
+LANG=en_US.UTF-8                   \
+meson --prefix=/usr                \
+      --sysconfdir=/etc            \
+      --localstatedir=/var         \
+      -Dblkid=true                 \
+      -Dbuildtype=release          \
+      -Ddefault-dnssec=no          \
+      -Dfirstboot=false            \
+      -Dinstall-tests=false        \
+      -Dkmod-path=/bin/kmod        \
+      -Dldconfig=false             \
+      -Dmount-path=/bin/mount      \
+      -Drootprefix=                \
+      -Drootlibdir=/lib            \
+      -Dsplit-usr=true             \
+      -Dsulogin-path=/sbin/sulogin \
+      -Dsysusers=false             \
+      -Dumount-path=/bin/umount    \
+      -Db_lto=false                \
+      -Drpmmacrosdir=no            \
+      ..
+LANG=en_US.UTF-8 ninja
+LANG=en_US.UTF-8 ninja install
+rm -f /usr/bin/xsltproc
+systemd-machine-id-setup
+systemctl preset-all
+systemctl disable systemd-time-wait-sync.service
+rm -fv /usr/lib/lib{blkid,uuid,mount}.so*
+
+# Dbus
+cd $LFS/sources -v
+unpack dbus-1.12.16.tar.gz 
+cd dbus-1.12.16/
+./configure --prefix=/usr                       \
+            --sysconfdir=/etc                   \
+            --localstatedir=/var                \
+            --disable-static                    \
+            --disable-doxygen-docs              \
+            --disable-xml-docs                  \
+            --docdir=/usr/share/doc/dbus-1.12.16 \
+            --with-console-auth-dir=/run/console
+make
+make install
+mv -v /usr/lib/libdbus-1.so.* /lib
+ln -sfv ../../lib/$(readlink /usr/lib/libdbus-1.so) /usr/lib/libdbus-1.so
+ln -sfv /etc/machine-id /var/lib/dbus
+
+# Procps-ng
+cd $LFS/sources -v
+unpack procps-ng-3.3.15.tar.xz 
+cd procps-ng-3.3.15/
+./configure --prefix=/usr                            \
+            --exec-prefix=                           \
+            --libdir=/usr/lib                        \
+            --docdir=/usr/share/doc/procps-ng-3.3.15 \
+            --disable-static                         \
+            --disable-kill                           \
+            --with-systemd
+make
+sed -i -r 's|(pmap_initname)\\\$|\1|' testsuite/pmap.test/pmap.exp
+sed -i '/set tty/d' testsuite/pkill.test/pkill.exp
+rm testsuite/pgrep.test/pgrep.exp
+make check
+make install
+mv -v /usr/lib/libprocps.so.* /lib
+ln -sfv ../../lib/$(readlink /usr/lib/libprocps.so) /usr/lib/libprocps.so
+
+# Utils-linux
+cd $LFS/sources -v
+cd util-linux-2.35.1/
+mkdir -pv /var/lib/hwclock
+rm -vf /usr/include/{blkid,libmount,uuid}
+./configure ADJTIME_PATH=/var/lib/hwclock/adjtime   \
+            --docdir=/usr/share/doc/util-linux-2.35.1 \
+            --disable-chfn-chsh  \
+            --disable-login      \
+            --disable-nologin    \
+            --disable-su         \
+            --disable-setpriv    \
+            --disable-runuser    \
+            --disable-pylibmount \
+            --disable-static     \
+            --without-python
+make
+make install
+
+# E2fsprogs
+cd $LFS/sources -v
+unpack e2fsprogs-1.45.5.tar.gz 
+cd e2fsprogs-1.45.5/
+mkdir -v build
+cd       build
+../configure --prefix=/usr           \
+             --bindir=/bin           \
+             --with-root-prefix=""   \
+             --enable-elf-shlibs     \
+             --disable-libblkid      \
+             --disable-libuuid       \
+             --disable-uuidd         \
+             --disable-fsck
+make
+make install
+chmod -v u+w /usr/lib/{libcom_err,libe2p,libext2fs,libss}.a
+gunzip -v /usr/share/info/libext2fs.info.gz
+install-info --dir-file=/usr/share/info/dir /usr/share/info/libext2fs.info
+makeinfo -o      doc/com_err.info ../lib/et/com_err.texinfo
+install -v -m644 doc/com_err.info /usr/share/info
+install-info --dir-file=/usr/share/info/dir /usr/share/info/com_err.info
+
+# Stripping
+save_lib="ld-2.31.so libc-2.31.so libpthread-2.31.so libthread_db-1.0.so"
+cd /lib
+for LIB in $save_lib; do
+    objcopy --only-keep-debug $LIB $LIB.dbg 
+    strip --strip-unneeded $LIB
+    objcopy --add-gnu-debuglink=$LIB.dbg $LIB 
+done    
+save_usrlib="libquadmath.so.0.0.0 libstdc++.so.6.0.27
+             libitm.so.1.0.0 libatomic.so.1.2.0" 
+
+cd /usr/lib
+for LIB in $save_usrlib; do
+    objcopy --only-keep-debug $LIB $LIB.dbg
+    strip --strip-unneeded $LIB
+    objcopy --add-gnu-debuglink=$LIB.dbg $LIB
+done
+unset LIB save_lib save_usrlib
+exec /tools/bin/bash
+/tools/bin/find /usr/lib -type f -name \*.a \
+   -exec /tools/bin/strip --strip-debug {} ';'
+/tools/bin/find /lib /usr/lib -type f \( -name \*.so* -a ! -name \*dbg \) \
+   -exec /tools/bin/strip --strip-unneeded {} ';'
+/tools/bin/find /{bin,sbin} /usr/{bin,sbin,libexec} -type f \
+    -exec /tools/bin/strip --strip-all {} ';'
+rm -rf /tmp/*
+logout
